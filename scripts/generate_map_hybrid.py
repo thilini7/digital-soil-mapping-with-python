@@ -78,7 +78,7 @@ print(f"  Output: {OUTPUT_DIR}")
 # ============================================================================
 print("\n📍 Step 1: Loading training data...")
 
-csv_path = TRAIN_DATA_DIR / 'OC_with_covariates_new.csv'
+csv_path = TRAIN_DATA_DIR / 'pH_with_covariates_new.csv'
 
 df = pd.read_csv(csv_path)
 print(f"✓ Loaded {len(df)} training samples")
@@ -102,9 +102,9 @@ valid_mask = ~np.isnan(y_original)
 X_original = X_original[valid_mask]
 y_original = y_original[valid_mask]
 
-# Filter data 0 to 10 (remove outliers for OC)
-data_mask =  (y_original <= 10)
-print(f"  Filtering Data 0-10: {data_mask.sum()}/{len(y_original)} samples retained")
+# Filter data 3.5 to 9 (remove outliers for pH)
+data_mask =  (y_original <= 9) & (y_original >= 3.5)
+print(f"  Filtering Data 3.5-9: {data_mask.sum()}/{len(y_original)} samples retained")
 X_original = X_original[data_mask]
 y_original = y_original[data_mask]
 
@@ -149,6 +149,7 @@ tabpfn_model = TabPFNRegressor(
     device=device,
     n_estimators=4,  # Balance of speed and accuracy
     random_state=42,
+    ignore_pretraining_limits=True,  # Allow CPU with large datasets
 )
 
 tabpfn_model.fit(X_train, y_original)
@@ -202,7 +203,7 @@ if len(feature_to_tif) < len(feature_cols):
     
     # Refit TabPFN
     print("  → Refitting TabPFN with matched features...")
-    tabpfn_model = TabPFNRegressor(device=device, n_estimators=4, random_state=42)
+    tabpfn_model = TabPFNRegressor(device=device, n_estimators=4, random_state=42, ignore_pretraining_limits=True)
     tabpfn_model.fit(X_train, y_original)
 
 # Get raster dimensions
@@ -391,7 +392,7 @@ print("     Running 5-fold cross-validation on TabPFN...")
 
 # Recreate TabPFN for CV
 from tabpfn import TabPFNRegressor
-tabpfn_cv = TabPFNRegressor(device=device, n_estimators=4, random_state=42)
+tabpfn_cv = TabPFNRegressor(device=device, n_estimators=4, random_state=42, ignore_pretraining_limits=True)
 
 # 5-fold CV predictions
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -471,7 +472,7 @@ from tqdm import tqdm
 
 # Output file
 output_suffix = 'xgb' if USE_XGBOOST else 'rf'
-output_path = OUTPUT_DIR / f'OC_NSW_ACT_0_5cm_hybrid_{output_suffix}.tif'
+output_path = OUTPUT_DIR / f'pH_NSW_ACT_0_5cm_hybrid_{output_suffix}.tif'
 
 # Update profile for output
 profile.update(

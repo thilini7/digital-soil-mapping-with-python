@@ -19,7 +19,8 @@ PHYSICAL_LIMITS = {
     'pH': {'lower': 3.5, 'upper': 9},  # Updated limits
     'Clay': {'lower': 0, 'upper': 100},
     'CEC': {'lower': 0.5, 'upper': 100},
-    'EC': {'lower': 0, 'upper': 16}
+    'EC': {'lower': 0, 'upper': 16},
+    'BD': {'lower': 1, 'upper': 1.8}
 }
 
 # Depth columns
@@ -77,7 +78,11 @@ FEATURE_SHORT_NAMES = {
 
 def load_and_filter_data(property_name: str) -> tuple:
     """Load CSV and filter by physical limits."""
-    csv_path = DATA_DIR / f"{property_name}_with_covariates_new.csv"
+    # Map abbreviations to file names
+    file_name_map = {'BD': 'Bulk_density'}
+    file_name = file_name_map.get(property_name, property_name)
+    
+    csv_path = DATA_DIR / f"{file_name}_with_covariates_new.csv"
     if not csv_path.exists():
         print(f"  ⚠️ File not found: {csv_path}")
         return None, 0
@@ -251,7 +256,8 @@ def get_property_full_name(prop: str) -> str:
         'pH': 'Soil pH',
         'Clay': 'Clay Content',
         'CEC': 'Cation Exchange Capacity (CEC)',
-        'EC': 'Electrical Conductivity (EC)'
+        'EC': 'Electrical Conductivity (EC)',
+        'BD': 'Bulk Density (BD)'
     }
     return names.get(prop, prop)
 
@@ -324,7 +330,7 @@ def generate_full_report():
     property_data = {}
     outlier_counts = {}
     
-    for prop in ['OC', 'pH', 'Clay', 'CEC', 'EC']:
+    for prop in ['OC', 'pH', 'Clay', 'CEC', 'EC', 'BD']:
         print(f"\n📊 Processing {prop}...")
         df, outliers = load_and_filter_data(prop)
         if df is not None:

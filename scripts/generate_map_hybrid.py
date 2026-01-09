@@ -78,7 +78,7 @@ print(f"  Output: {OUTPUT_DIR}")
 # ============================================================================
 print("\n📍 Step 1: Loading training data...")
 
-csv_path = TRAIN_DATA_DIR / 'pH_with_covariates_new.csv'
+csv_path = TRAIN_DATA_DIR / 'Bulk_density_with_covariates_new.csv'
 
 df = pd.read_csv(csv_path)
 print(f"✓ Loaded {len(df)} training samples")
@@ -102,9 +102,9 @@ valid_mask = ~np.isnan(y_original)
 X_original = X_original[valid_mask]
 y_original = y_original[valid_mask]
 
-# Filter data 3.5 to 9 (remove outliers for pH)
-data_mask =  (y_original <= 9) & (y_original >= 3.5)
-print(f"  Filtering Data 3.5-9: {data_mask.sum()}/{len(y_original)} samples retained")
+# Filter data 1 to 1.8 (remove outliers for Bulk_density)
+data_mask =  (y_original <= 1.8) & (y_original >= 1)
+print(f"  Filtering Data 1-1.8: {data_mask.sum()}/{len(y_original)} samples retained")
 X_original = X_original[data_mask]
 y_original = y_original[data_mask]
 
@@ -254,7 +254,17 @@ print(f"✓ Valid pixels after filtering: {len(pseudo_X):,}")
 # Preprocess
 pseudo_X_imputed = imputer.transform(pseudo_X)
 pseudo_X_power = power_transformer.transform(pseudo_X_imputed)
+
+# Handle any infinities or large values from power transform
+pseudo_X_power = np.nan_to_num(pseudo_X_power, nan=0.0, posinf=0.0, neginf=0.0)
+pseudo_X_power = np.clip(pseudo_X_power, -1e10, 1e10)
+
 pseudo_X_scaled = scaler.transform(pseudo_X_power)
+
+# Final cleanup - ensure no infinity/NaN values for TabPFN
+pseudo_X_scaled = np.nan_to_num(pseudo_X_scaled, nan=0.0, posinf=0.0, neginf=0.0)
+pseudo_X_scaled = np.clip(pseudo_X_scaled, -1e6, 1e6).astype(np.float32)
+print(f"  After preprocessing: min={pseudo_X_scaled.min():.4f}, max={pseudo_X_scaled.max():.4f}")
 
 # ============================================================================
 # STEP 6: PREDICT WITH TABPFN (PSEUDO-LABELS)
@@ -472,7 +482,7 @@ from tqdm import tqdm
 
 # Output file
 output_suffix = 'xgb' if USE_XGBOOST else 'rf'
-output_path = OUTPUT_DIR / f'pH_NSW_ACT_0_5cm_hybrid_{output_suffix}.tif'
+output_path = OUTPUT_DIR / f'Bulk_density_NSW_ACT_0_5cm_hybrid_{output_suffix}.tif'
 
 # Update profile for output
 profile.update(
@@ -535,7 +545,16 @@ with rasterio.open(output_path, 'w', **profile) as dst:
                     valid_data = tile_data[valid_mask]
                     valid_imputed = imputer.transform(valid_data)
                     valid_power = power_transformer.transform(valid_imputed)
+                    
+                    # Handle infinity/extreme values from power transform
+                    valid_power = np.nan_to_num(valid_power, nan=0.0, posinf=0.0, neginf=0.0)
+                    valid_power = np.clip(valid_power, -1e10, 1e10)
+                    
                     valid_scaled = scaler.transform(valid_power)
+                    
+                    # Final cleanup for model input
+                    valid_scaled = np.nan_to_num(valid_scaled, nan=0.0, posinf=0.0, neginf=0.0)
+                    valid_scaled = np.clip(valid_scaled, -1e6, 1e6).astype(np.float32)
                     
                     # Predict with model (XGBoost or RF - FAST!)
                     predictions = model.predict(valid_scaled)
